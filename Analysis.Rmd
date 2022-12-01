@@ -25,3 +25,6 @@ View(county_data)
 summary(county_data)
 str(county_data)
 ```
+
+# Question: How does the prevalence of fast food restaurants in a county impact the location's obesity rate?
+
