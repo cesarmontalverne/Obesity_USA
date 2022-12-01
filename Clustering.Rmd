@@ -1,0 +1,92 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(randomForest)
+library(rio)
+library(mltools)
+library(data.table)
+library(caret)
+library(C50)
+library(pROC)
+library(plotly)
+library(MLmetrics)
+library(ROCR)
+library(rpart)
+library(psych)
+library(plyr)
+library(rattle)
+library(rpart.plot)
+library(NbClust)
+
+county_data <- read_csv("FoodEnvAtlas.csv") # read in the dataset
+
+```
+
+```{r}
+# remove state, coutny, and povrate columns and normalize the data
+county_data <- county_data %>% select(-c(state, county, povrate))
+normalize <- function(x){
+ (x - min(x)) / (max(x) - min(x))
+}
+
+county_data[,c(1:7)] <- lapply(county_data[,c(1:7)], normalize)
+
+# create obesrateLevel column to turn it into a classification problem
+county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low")) %>% select(-obesrate)
+
+# remove obesrateLevel for clustering
+clust_county <- county_data %>% select(-c("obesrateLevel"))
+```
+
+```{r}
+# use elbow chart to find best number of centers for kmeans
+explained_variance = function(data_in, k){
+  
+  # Running the kmeans algorithm.
+  set.seed(1)
+  kmeans_obj = kmeans(data_in, centers = k, algorithm = "Lloyd", iter.max = 30)
+  
+  # Variance accounted for by clusters:
+  # var_exp = intercluster variance / total variance
+  var_exp = kmeans_obj$betweenss / kmeans_obj$totss
+  var_exp  
+}
+
+explained_var_county = sapply(1:10, explained_variance, data_in = clust_county)
+
+elbow_data_county = data.frame(k = 1:10, explained_var_county)
+
+# Plotting data.
+ggplot(elbow_data_county, 
+       aes(x = k,  
+           y = explained_var_county)) + 
+  geom_point(size = 4) +           #<- sets the size of the data points
+  geom_line(size = 1) +            #<- sets the thickness of the line
+  xlab('k') + 
+  ylab('Inter-cluster Variance / Total Variance') + 
+  theme_light()
+
+```
+
+```{r}
+# 4 centers was found to be the best
+set.seed(1)
+kmeans_obj_county = kmeans(clust_county, centers = 4, 
+                        algorithm = "Lloyd")   #<- there are several ways of implementing
+
+kmeans_obj_county
+
+kmeans_obj_county$cluster
+
+# create column for cluster assignment
+county_cluster_data <- cbind(county_data, clusterNum = kmeans_obj_county$cluster)
+
+# breakup the datset into their respective cluster datasets
+cluster_1_data <- filter(county_cluster_data, clusterNum == 1)
+cluster_2_data <- filter(county_cluster_data, clusterNum == 2)
+cluster_3_data <- filter(county_cluster_data, clusterNum == 3)
+cluster_4_data <- filter(county_cluster_data, clusterNum == 4)
+```
