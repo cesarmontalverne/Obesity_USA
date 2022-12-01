@@ -1,0 +1,27 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(randomForest)
+library(rio)
+library(mltools)
+library(data.table)
+library(caret)
+library(C50)
+library(pROC)
+library(plotly)
+library(MLmetrics)
+library(ROCR)
+library(rpart)
+library(psych)
+library(plyr)
+library(rattle)
+library(rpart.plot)
+
+county_data <- read_csv("FoodEnvAtlas.csv")
+View(county_data)
+summary(county_data)
+str(county_data)
+```
