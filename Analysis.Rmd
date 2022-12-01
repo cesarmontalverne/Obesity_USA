@@ -21,10 +21,129 @@ library(rattle)
 library(rpart.plot)
 
 county_data <- read_csv("FoodEnvAtlas.csv")
-View(county_data)
+#View(county_data)
 summary(county_data)
 str(county_data)
 ```
 
 # Question: How does the prevalence of fast food restaurants in a county impact the location's obesity rate?
 
+Finish any other data prep (one-hot encode, reduce factor levels)
+```{r}
+county_data <- county_data %>% select(-c(state, county, povrate))
+
+normalize <- function(x){
+ (x - min(x)) / (max(x) - min(x))
+}
+
+county_data[,c(1:7)] <- lapply(county_data[,c(1:7)], normalize)
+county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low")) %>% select(-obesrate)
+```
+
+Create test, tune and training sets 
+```{r}
+part_index_1 <- createDataPartition(county_data$obesrateLevel,
+                                           times=1,
+                                           p = 0.70,
+                                           groups=1,
+                                           list=FALSE)
+
+train <- county_data[part_index_1,]
+
+tune_and_test <- county_data[-part_index_1, ]
+
+tune_and_test_index <- createDataPartition(county_data$obesrateLevel,
+                                           p = .5,
+                                           list = FALSE,
+                                           times = 1)
+
+tune <- tune_and_test[tune_and_test_index, ]
+test <- tune_and_test[-tune_and_test_index, ]
+
+```
+
+Calculate the initial mtry level 
+```{r}
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(3)
+}
+
+mytry_tune(county_data) # 3
+```
+
+Run the initial RF model with 1000 trees 
+```{r}
+county_RF = randomForest(as.factor(obesrateLevel)~., train, ntree = 500,
+                            mtry = 3,            
+                            replace = TRUE,      
+                            sampsize = 100,      
+                            nodesize = 5,        
+                            importance = TRUE,   
+                            proximity = FALSE,    
+                            norm.votes = TRUE,   
+                            do.trace = TRUE,     
+                            keep.forest = TRUE,  
+                            keep.inbag = TRUE)   
+```
+
+Take a look at the variable importance measures, are they the same as the DT version or not? 
+```{r}
+View(as.data.frame(county_RF$importance))
+```
+
+
+Using the training and tune datasets to tune the model in consideration of the number of trees, the number of variables to sample and the sample size that optimize the model output. 
+```{r}
+mice::md.pattern(tune)
+tune <- tune[complete.cases(tune),]
+county_RF_mtry = tuneRF(tune[ ,1:7],  #<- data frame of predictor variables
+                           tune$obesrateLevel,   #<- response vector (variables), factors for classification and continuous variable for regression
+                           mtryStart = 8,                        #<- starting value of mtry, the default is the same as in the randomForest function
+                           ntreeTry = 1000,                       #<- number of trees used at the tuning step, let's use the same number as we did for the random forest
+                           stepFactor = 2,                       #<- at each iteration, mtry is inflated (or deflated) by this value
+                           improve = 0.05,                       #<- the improvement in OOB error must be by this much for the search to continue
+                           trace = TRUE,                         #<- whether to print the progress of the search
+                           plot = TRUE,                          #<- whether to plot the OOB error as a function of mtry
+                           doBest = TRUE)                       #<- whether to create a random forest using the optimal mtry parameter
+```
+
+Once a final model has been selected (hyper-parameters of the model are set), evaluate the model using the test dataset. 
+```{r}
+test <- test[complete.cases(test),]
+test <- test[1:4822,]
+predict <- predict(census_RF_mtry, test, type = "response", predict.all = TRUE)
+ROC <- roc(predict$aggregate, as.numeric(test$income), plot = TRUE)
+census_RF_prediction = as.data.frame(as.numeric(as.character(census_RF_mtry$votes[,2])))
+census_train_actual = as.data.frame(test$income)
+census_prediction_comparison = prediction(census_RF_prediction,census_train_actual)
+census_pred_performance = performance(census_prediction_comparison, measure = "tpr", x.measure = "fpr")
+
+
+
+income_level_rates = data.frame(fp = census_prediction_comparison@fp,  #<- false positive classification.
+                             tp = census_prediction_comparison@tp,  #<- true positive classification.
+                             tn = census_prediction_comparison@tn,  #<- true negative classification.
+                             fn = census_prediction_comparison@fn)  #<- false negative classification.
+
+colnames(income_level_rates) = c("fp", "tp", "tn", "fn")
+
+tpr = income_level_rates$tp / (income_level_rates$tp + income_level_rates$fn)
+fpr = income_level_rates$fp / (income_level_rates$fp + income_level_rates$tn)
+
+# Compare the values with the output of the performance() function, they are the same.
+income_level_rates_comparison = data.frame(census_pred_performance@x.values,
+                                        census_pred_performance@y.values,
+                                        fpr,
+                                        tpr)
+colnames(income_level_rates_comparison) = c("x.values","y.values","fpr","tpr") #<- rename columns accordingly.
+
+dev.off() 
+
+plot(census_pred_performance, 
+     col = "red", 
+     lwd = 3, 
+     main = "ROC curve")
+grid(col = "black")
+
+```
