@@ -20,19 +20,63 @@ library(plyr)
 library(rattle)
 library(rpart.plot)
 library(NbClust)
-
-county_data <- read_csv("FoodEnvAtlas.csv") # read in the dataset
+```
+```{r}
+sorting <- function(file) {
+   sortCounties <- file[order(file$County),]
+   sortState <- sortCounties[order(sortCounties$State),]
+   return(sortState)
+}
+access <- sorting(
+  read.csv("FoodEnvAtlas/Access.csv",
+           header = TRUE, sep = ",")
+  )
+restaurants <- sorting(
+  read.csv("FoodEnvAtlas/Restaurants.csv",
+           header = TRUE, sep = ",")
+  )
+priceTaxes <- sorting(
+  read.csv("FoodEnvAtlas/PriceTaxes.csv",
+           header = TRUE, sep = ",")
+  )
+health <- sorting(
+  read.csv("FoodEnvAtlas/Health.csv",
+           header = TRUE, sep = ",")
+  )
+socioec <- sorting(
+  read.csv("FoodEnvAtlas/Socioeconomic.csv",
+           header = TRUE, sep = ",")
+  )
+state <- access$State #State
+county <- access$County #County
+loaccgro <- access$PCT_LACCESS_POP15 #Population, low access to store (%), 2015
+fasfoo <- restaurants$FSRPTH14 #Fast-food restaurants/1,000 pop, 2014
+relprimilk <- priceTaxes$MILK_PRICE10 #Price of low-fat milk/national average, 2010**
+diab <- health$PCT_DIABETES_ADULTS13 #Adult diabetes rate, 2013
+obesrate <- health$PCT_OBESE_ADULTS13 #Adult obesity rate, 2013
+fitplace <- health$RECFACPTH14 #Recreation & fitness facilities/1,000 pop, 2014
+povrate <- socioec$POVRATE15 #Poverty rate, 2015
+medinc <- socioec$MEDHHINC15 #Median household income, 2015
+mergingData <- data.frame(state = state,
+                        county = county,
+                        loaccgro = loaccgro,
+                        fasfoo = fasfoo,
+                        diab = diab,
+                        obesrate = obesrate,
+                        fitplace = fitplace,
+                        medinc = medinc)
+county_data <- na.omit(mergingData)
 
 ```
 
 ```{r}
 # remove state, coutny, and povrate columns and normalize the data
-county_data <- county_data %>% select(-c(state, county, povrate))
+county_data <- county_data %>% select(-c(state, county))
 normalize <- function(x){
  (x - min(x)) / (max(x) - min(x))
 }
 
-county_data[,c(1:7)] <- lapply(county_data[,c(1:7)], normalize)
+county_data[,c(1:7)] <- lapply(county_data[,c(1:6)], normalize)
 
 # create obesrateLevel column to turn it into a classification problem
 county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low")) %>% select(-obesrate)
@@ -85,8 +129,8 @@ kmeans_obj_county$cluster
 county_cluster_data <- cbind(county_data, clusterNum = kmeans_obj_county$cluster)
 
 # breakup the datset into their respective cluster datasets
-cluster_1_data <- filter(county_cluster_data, clusterNum == 1)
-cluster_2_data <- filter(county_cluster_data, clusterNum == 2)
-cluster_3_data <- filter(county_cluster_data, clusterNum == 3)
-cluster_4_data <- filter(county_cluster_data, clusterNum == 4)
+cluster_1_data <- filter(county_cluster_data, clusterNum == 1) #Nate
+cluster_2_data <- filter(county_cluster_data, clusterNum == 2) #Cesar
+cluster_3_data <- filter(county_cluster_data, clusterNum == 3) #Alex
+cluster_4_data <- filter(county_cluster_data, clusterNum == 4) #Liam
 ```
