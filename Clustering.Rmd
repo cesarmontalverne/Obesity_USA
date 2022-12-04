@@ -193,18 +193,18 @@ plot_data<-county_cluster_data_and_countyCount %>%
   group_by(state,numCounties,clusterNum) %>% dplyr::summarise(values=n()/numCounties)
 plot_usmap(data = plot_data[plot_data$clusterNum==1,])+ 
   scale_fill_continuous(
-    low = "white", high = "black", name = "cluster1"
+    low = "white", high = "black", name = "cluster1",limits=c(0, 1)
   ) 
 plot_usmap(data = plot_data[plot_data$clusterNum==2,])+ 
   scale_fill_continuous(
-    low = "white", high = "black", name = "cluster2"
+    low = "white", high = "black", name = "cluster2",limits=c(0, 1)
   ) 
 plot_usmap(data = plot_data[plot_data$clusterNum==3,])+ 
   scale_fill_continuous(
-    low = "white", high = "black", name = "cluster3"
+    low = "white", high = "black", name = "cluster3",limits=c(0, 1)
   ) 
 plot_usmap(data = plot_data[plot_data$clusterNum==4,])+ 
   scale_fill_continuous(
-    low = "white", high = "black", name = "cluster4"
+    low = "white", high = "black", name = "cluster4",limits=c(0, 1)
 ) 
 ```
