@@ -1,0 +1,86 @@
+---
+title: "Cesar"
+author: "cesar, alex, nathan, liam"
+date: "2022-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(randomForest)
+library(rio)
+library(mltools)
+library(data.table)
+library(caret)
+library(C50)
+library(pROC)
+library(plotly)
+library(MLmetrics)
+library(ROCR)
+library(rpart)
+library(psych)
+library(plyr)
+library(rattle)
+library(rpart.plot)
+```
+
+## R Markdown
+
+## Cluster 2 - Cesar
+```{r}
+cluster2 <- read_csv("cluster_2_data.csv",show_col_types = FALSE)
+cluster2<-cluster2%>%select(-c("clusterNum","loaccgro.1",
+                               "obesrateLevel"))
+summary(cluster2)
+```
+
+
+# Question: How does the prevalence of fast food restaurants in a county impact the location's obesity rate?
+
+Finish any other data prep (one-hot encode, reduce factor levels)
+```{r}
+sample_rows = 1:nrow(cluster2)
+
+# sample() is a randomized function, use set.seed() to make your results reproducible.
+set.seed(22) #sample(x, size, replace = FALSE, prob = NULL)
+test_rows = sample(sample_rows,
+                   dim(cluster2)[1]*.15, #start with 15% of our dataset, could do 20%
+                   # but random forest does require more training data because of the 
+                   # sampling so 90% might be a better approach with this small of a dataset
+                   replace = FALSE)# We don't want duplicate samples
+
+# Partition the data between training and test sets using the row numbers the
+# sample() function selected, using a simplified version for the lab you'll need 
+# to create three segments 
+train_rows = cluster2[-test_rows,]
+test_rows = cluster2[test_rows,]
+```
+```{r}
+set.seed(22)
+rf2=randomForest(obesrate~.,data=train_rows,
+                 mtry=1,
+                 ntree = 400,
+                 nodesize = 14,
+                 importance=TRUE)
+
+```
+Testing and optimizing by picking the most appropriate mtry, node size and ntree.
+```{r}
+yhat.cluster2 = predict(rf2,newdata=test_rows)
+mean((yhat.cluster2-test_rows$obesrate)^2)
+mean((mean(test_rows$obesrate)-test_rows$obesrate)^2)
+mean((mean(train_rows$obesrate)-test_rows$obesrate)^2)
+
+```
+
+The mean squared error of the sample was really low. This is to be expected, since we clustered data into four groups that are similar in determining aspects to obesity rate.
+
+If instead of training the dataset, we just guessed the average obesity rate of the training data the MSE would be of 0.010823. Using the data to train it using the random forest method, gives us a 0.0088 MSE, which is almost 20% lower. 
+
+Given there's such few datapoints, especially for the testing portion of this, I believe that this is a good result.
+
+```{r}
+rf2$importance
+```
+Non-surisingly, the rate of people with diabetes in the county was the most important predictor followed by median income in the county. Next, the accessibility to grocery stores closely followed by the number fast-food restaurants in the county were the most important predictors. Lastly, the number of gyms and fitness centers in the county was almost insignificant to the prediction for this cluster.

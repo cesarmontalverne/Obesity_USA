@@ -79,7 +79,7 @@ normalize <- function(x){
 county_data[,c(1:7)] <- lapply(county_data[,c(1:6)], normalize)
 
 # create obesrateLevel column to turn it into a classification problem
-county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low")) %>% select(-obesrate)
+county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low"))
 
 # remove obesrateLevel for clustering
 clust_county <- county_data %>% select(-c("obesrateLevel"))
@@ -134,8 +134,8 @@ cluster_2_data <- filter(county_cluster_data, clusterNum == 2) #Cesar
 cluster_3_data <- filter(county_cluster_data, clusterNum == 3) #Alex
 cluster_4_data <- filter(county_cluster_data, clusterNum == 4) #Liam
 
-# write.csv(cluster_1_data,"cluster_1_data.csv", row.names = FALSE)
-# write.csv(cluster_2_data,"cluster_2_data.csv", row.names = FALSE)
-# write.csv(cluster_3_data,"cluster_3_data.csv", row.names = FALSE)
-# write.csv(cluster_4_data,"cluster_4_data.csv", row.names = FALSE)
+#write.csv(cluster_1_data,"cluster_1_data.csv", row.names = FALSE)
+write.csv(cluster_2_data,"cluster_2_data.csv", row.names = FALSE)
+#write.csv(cluster_3_data,"cluster_3_data.csv", row.names = FALSE)
+#write.csv(cluster_4_data,"cluster_4_data.csv", row.names = FALSE)
 ```
