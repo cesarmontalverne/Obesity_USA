@@ -89,4 +89,9 @@ cluster_1_data <- filter(county_cluster_data, clusterNum == 1)
 cluster_2_data <- filter(county_cluster_data, clusterNum == 2)
 cluster_3_data <- filter(county_cluster_data, clusterNum == 3)
 cluster_4_data <- filter(county_cluster_data, clusterNum == 4)
+
+# write.csv(cluster_1_data,"cluster_1_data.csv", row.names = FALSE)
+# write.csv(cluster_2_data,"cluster_2_data.csv", row.names = FALSE)
+# write.csv(cluster_3_data,"cluster_3_data.csv", row.names = FALSE)
+# write.csv(cluster_4_data,"cluster_4_data.csv", row.names = FALSE)
 ```
