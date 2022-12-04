@@ -71,12 +71,12 @@ county_data <- na.omit(mergingData)
 
 ```{r}
 # remove state, coutny, and povrate columns and normalize the data
-county_data <- county_data %>% select(-c(state, county))
+#county_data <- county_data %>% select(-c(state, county))
 normalize <- function(x){
  (x - min(x)) / (max(x) - min(x))
 }
 
-county_data[,c(1:7)] <- lapply(county_data[,c(1:6)], normalize)
+county_data[,c(3:8)] <- lapply(county_data[,c(3:8)], normalize)
 
 # create obesrateLevel column to turn it into a classification problem
 county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low"))
@@ -99,7 +99,7 @@ explained_variance = function(data_in, k){
   var_exp  
 }
 
-explained_var_county = sapply(1:10, explained_variance, data_in = clust_county)
+explained_var_county = sapply(1:10, explained_variance, data_in = clust_county%>%select(-c(1,2)))
 
 elbow_data_county = data.frame(k = 1:10, explained_var_county)
 
@@ -118,7 +118,7 @@ ggplot(elbow_data_county,
 ```{r}
 # 4 centers was found to be the best
 set.seed(1)
-kmeans_obj_county = kmeans(clust_county, centers = 4, 
+kmeans_obj_county = kmeans(clust_county%>%select(-c(1,2)), centers = 4, 
                         algorithm = "Lloyd")   #<- there are several ways of implementing
 
 kmeans_obj_county
@@ -135,7 +135,76 @@ cluster_3_data <- filter(county_cluster_data, clusterNum == 3) #Alex
 cluster_4_data <- filter(county_cluster_data, clusterNum == 4) #Liam
 
 #write.csv(cluster_1_data,"cluster_1_data.csv", row.names = FALSE)
-write.csv(cluster_2_data,"cluster_2_data.csv", row.names = FALSE)
+#write.csv(cluster_2_data,"cluster_2_data.csv", row.names = FALSE)
 #write.csv(cluster_3_data,"cluster_3_data.csv", row.names = FALSE)
 #write.csv(cluster_4_data,"cluster_4_data.csv", row.names = FALSE)
+```
+
+```{r}
+#means
+means_histo <- data.frame(clusters=c(1:4),
+              loaccgro_means = c(mean(cluster_1_data$loaccgro),
+                                 mean(cluster_2_data$loaccgro),
+                                 mean(cluster_3_data$loaccgro),
+                                 mean(cluster_4_data$loaccgro)),
+              fasfoo_means = c(mean(cluster_1_data$fasfoo),
+                                 mean(cluster_2_data$fasfoo),
+                                 mean(cluster_3_data$fasfoo),
+                                 mean(cluster_4_data$fasfoo)),
+              fitplace_means = c(mean(cluster_1_data$fitplace),
+                                 mean(cluster_2_data$fitplace),
+                                 mean(cluster_3_data$fitplace),
+                                 mean(cluster_4_data$fitplace)),
+              medinc_means = c(mean(cluster_1_data$medinc),
+                                 mean(cluster_2_data$medinc),
+                                 mean(cluster_3_data$medinc),
+                                 mean(cluster_4_data$medinc)),
+              diab_means = c(mean(cluster_1_data$diab),
+                                 mean(cluster_2_data$diab),
+                                 mean(cluster_3_data$diab),
+                                 mean(cluster_4_data$diab)),
+              obesrate_means = c(mean(cluster_1_data$obesrate),
+                                 mean(cluster_2_data$obesrate),
+                                 mean(cluster_3_data$obesrate),
+                                 mean(cluster_4_data$obesrate))
+              
+              )
+library(plotly)
+fig <- plot_ly(means_histo, x = ~clusters,
+               y = ~loaccgro_means,
+               type = 'bar', name = 'access to grocery means')
+fig <- fig %>% add_trace(y = ~fasfoo_means, name = 'fast food means')
+fig <- fig %>% add_trace(y = ~medinc_means, name = 'median income means')
+fig <- fig %>% add_trace(y = ~fitplace_means, name = 'fitness establishments means')
+fig <- fig %>% add_trace(y = ~diab_means, name = 'diabetes means')
+fig <- fig %>% add_trace(y = ~obesrate_means, name = 'obesity rate means')
+fig <- fig %>% layout(yaxis = list(title = 'Normalized Means'), barmode = 'group')
+
+
+fig
+```
+```{r}
+library("dplyr")
+total_counties_per_state <- county_cluster_data %>%
+  group_by(state)%>%dplyr::summarise(numCounties=n())
+county_cluster_data_and_countyCount <- merge(county_cluster_data,
+                             total_counties_per_state,by="state")
+plot_data<-county_cluster_data_and_countyCount %>%
+  group_by(state,numCounties,clusterNum) %>% dplyr::summarise(values=n()/numCounties)
+plot_usmap(data = plot_data[plot_data$clusterNum==1,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster1"
+  ) 
+plot_usmap(data = plot_data[plot_data$clusterNum==2,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster2"
+  ) 
+plot_usmap(data = plot_data[plot_data$clusterNum==3,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster3"
+  ) 
+plot_usmap(data = plot_data[plot_data$clusterNum==4,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster4"
+) 
 ```
