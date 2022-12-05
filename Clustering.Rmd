@@ -82,7 +82,7 @@ county_data[,c(3:8)] <- lapply(county_data[,c(3:8)], normalize)
 county_data <-county_data %>% mutate(obesrateLevel = ifelse(obesrate >= 0.7, "high", "low"))
 
 # remove obesrateLevel for clustering
-clust_county <- county_data %>% select(-c("obesrateLevel"))
+clust_county <- county_data %>% select(-c("obesrate", "obesrateLevel"))
 ```
 
 ```{r}
