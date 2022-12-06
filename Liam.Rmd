@@ -35,7 +35,7 @@ library(rattle)
 
 ```{r}
 clusterdata <- read.csv("cluster_4_data.csv")
-clusterdata <- clusterdata %>% select(-c(clusterNum, state, county, obesrateLevel))
+clusterdata <- clusterdata %>% select(-c(clusterNum, state, county))
 #clusterdata <- one_hot(as.data.table(clusterdata),cols="obesrateLevel",sparsifyNAs = TRUE,naCols = FALSE,dropCols = TRUE,dropUnusedLevels = TRUE)
 
 ```
@@ -65,6 +65,7 @@ mytry_tune(clusterdata)
 ```
 
 ```{r}
+set.seed(1)
 cluster_RF = randomForest(obesrate~., train, ntree = 500,
                             mtry = 2,            
                             replace = TRUE,      
