@@ -172,11 +172,11 @@ cluster_4_data <- filter(county_cluster_data, clusterNum == 4) #Liam
 ```{r}
 #means
 total_dpts <- nrow(county_cluster_data)
-means_histo <- data.frame(clusters=c(1:5),
+means_histo <- data.frame(clusters=c(1:4),
               dpts = c(nrow(cluster_1_data)/total_dpts,
                              nrow(cluster_2_data)/total_dpts,
                              nrow(cluster_3_data)/total_dpts,
-                             nrow(cluster_4_data)/total_dpts,
+                             nrow(cluster_4_data)/total_dpts
                         ),
               loaccgro_means = c(mean(cluster_1_data$loaccgro),
                                  mean(cluster_2_data$loaccgro),
