@@ -1,0 +1,506 @@
+---
+title: "Final Report"
+author: "Nathaniel, Alex, Cesar, Liam"
+date: "12/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(randomForest)
+library(rio)
+library(mltools)
+library(data.table)
+library(caret)
+library(C50)
+library(pROC)
+library(plotly)
+library(MLmetrics)
+library(ROCR)
+library(rpart)
+library(psych)
+library(plyr)
+library(rattle)
+library(rpart.plot)
+library(NbClust)
+```
+## Question and Data
+
+During the COVID pandemic, the Centers for Disease and Control and Prevention (CDC) published an article showing that the obese population was more likely to die or have further complications due to the virus.  There are countless other similar studies that indicate the severity of the health problem that is obesity.
+
+The United States is the most relevant country in the world, being known for being a land of great opportunity, wealth and freedom. However, along with that, there is an immediate association of the country with a sedentary life style, fast food restaurants and obesity. The stereotype doesn't come from nowhere: The United States has an obesity rate of 36.5%, making the country the most obese among developed countries. Within the limits of the conclusions that the field of data science can make, we decided to answer: Is the availability to fast food restaurants in the USA associated with higher obesity rates? We will also attempt to discover other variables that could be associated with obesity rates and determine how correlated they seem to be with obesity rates. Or rather, which factors are the best predictors of obesity rate?
+
+## Data
+We used data from the Food Environment Atlas by the U.S Department of Agriculture collected in years ranging from 2013 to 2015. They use as their sources the BRFSS, the U.S. Census, and the USDA's Economic Research Service as their sources and they organize their data at the county level - therefore we have used each county as one data point. We believe that the fact the data is from different years may cause a slight alteration in the results of our model. This should be negligible since they're only at most two years apart.
+
+We picked a few variables that we thought could be relevant in determining obesity rates:
+
+obesrate = rate of obesity in each county in the US, 2013 
+fasfoo = fast-food restaurants per 1000 people in each county in the US, 2014 
+medinc = median household income, 2015
+diab = rate of diabetes in each county in the US, 2013
+fitplace = recreation & fitness facilities per 1000 people in each county in the US, 2014 
+loaccgro = percent of access to grocery stores in each county in the US, 2015.
+
+
+https://www.ers.usda.gov/data-products/food-environment-atlas/data-access-and-documentation-downloads/
+
+```{r echo=FALSE, results=FALSE}
+# read in data
+sorting <- function(file) {
+   sortCounties <- file[order(file$County),]
+   sortState <- sortCounties[order(sortCounties$State),]
+   return(sortState)
+}
+access <- sorting(
+  read.csv("FoodEnvAtlas/Access.csv",
+           header = TRUE, sep = ",")
+  )
+restaurants <- sorting(
+  read.csv("FoodEnvAtlas/Restaurants.csv",
+           header = TRUE, sep = ",")
+  )
+priceTaxes <- sorting(
+  read.csv("FoodEnvAtlas/PriceTaxes.csv",
+           header = TRUE, sep = ",")
+  )
+health <- sorting(
+  read.csv("FoodEnvAtlas/Health.csv",
+           header = TRUE, sep = ",")
+  )
+socioec <- sorting(
+  read.csv("FoodEnvAtlas/Socioeconomic.csv",
+           header = TRUE, sep = ",")
+  )
+state <- access$State #State
+county <- access$County #County
+loaccgro <- access$PCT_LACCESS_POP15 #Population, low access to store (%), 2015
+fasfoo <- restaurants$FSRPTH14 #Fast-food restaurants/1,000 pop, 2014
+relprimilk <- priceTaxes$MILK_PRICE10 #Price of low-fat milk/national average, 2010**
+diab <- health$PCT_DIABETES_ADULTS13 #Adult diabetes rate, 2013
+obesrate <- health$PCT_OBESE_ADULTS13 #Adult obesity rate, 2013
+fitplace <- health$RECFACPTH14 #Recreation & fitness facilities/1,000 pop, 2014
+povrate <- socioec$POVRATE15 #Poverty rate, 2015
+medinc <- socioec$MEDHHINC15 #Median household income, 2015
+
+# after analyzing the data we chose to keep only the following columns
+mergingData <- data.frame(state = state,
+                        county = county,
+                        loaccgro = loaccgro,
+                        fasfoo = fasfoo,
+                        diab = diab,
+                        obesrate = obesrate,
+                        fitplace = fitplace,
+                        medinc = as.numeric(medinc))
+
+```
+## Methods
+To answer our question, we chose to use a two step process. For the first step, we decided to split the initial data set by clustering using k-means. This would allow our models in the second step of the process to make better predictions. Additionally, separating our data to create different models will prevent over-fitting. 
+
+We clustered on the variables mentioned above (fasfoo, medinc, diab, fitplace, loaccgro), excluding obesity rate as this is our target variable.
+
+Based on the elbow the elbow chart below, 4 centers looked the best for k-means. For each of the 4 clusters, we created 4 new data sets, leading us to the second step of our two-step process. For each data set, we trained a random forest regression model, evaluating them using mean-squared error (MSE).
+
+We decided to use decision trees because they allow us to determine which features are most useful in predicting our target variable, helping us answer our question above of which features are the best predictors of obesity rate. Furthermore, we used random forests to mitigate under-predicting and over-predicting through their use of bagging and boosting. 
+
+
+## Exploratory Data Analysis
+
+```{r echo=FALSE, results=FALSE}
+table(is.na(mergingData)) 
+# very few NAs. Let's omit them
+county_data <- na.omit(mergingData)
+str(county_data)
+summary(county_data)
+# normalize the data
+normalize <- function(x){
+ (x - min(x)) / (max(x) - min(x))
+}
+county_data[,c(3:8)] <- lapply(county_data[,c(3:8)], normalize)
+summary(county_data)
+
+```
+Since we use a two step data analysis process, first clustering the data and then running separate models in each cluster, we thought this would be a good opportunity to explore these clusters a little more.
+
+```{r echo=FALSE, results=FALSE}
+# remove obesrateLevel for clustering
+clust_county <- county_data %>% select(-c("obesrate"))
+
+# use elbow chart to find best number of centers for kmeans
+explained_variance = function(data_in, k){
+  # Running the kmeans algorithm.
+  set.seed(1)
+  kmeans_obj = kmeans(data_in, centers = k, algorithm = "Lloyd", iter.max = 30)
+  
+  # Variance accounted for by clusters:
+  # var_exp = intercluster variance / total variance
+  var_exp = kmeans_obj$betweenss / kmeans_obj$totss
+  var_exp  
+}
+
+explained_var_county = sapply(1:10, explained_variance, data_in = clust_county%>%select(-c(1,2))) #removing variables that won't be used for cluster
+
+elbow_data_county = data.frame(k = 1:10, explained_var_county)
+
+# Plotting data.
+ggplot(elbow_data_county, 
+       aes(x = k,  
+           y = explained_var_county)) + 
+  geom_point(size = 4) +           #<- sets the size of the data points
+  geom_line(size = 1) +            #<- sets the thickness of the line
+  xlab('k') + 
+  ylab('Inter-cluster Variance / Total Variance') + 
+  theme_light()
+
+```
+
+```{r echo=FALSE, results=FALSE}
+# 4 centers was found to be the best
+set.seed(1)
+kmeans_obj_county = kmeans(clust_county%>%select(-c(1,2)), centers = 4, 
+                        algorithm = "Lloyd")   #<- there are several ways of implementing
+
+kmeans_obj_county
+
+kmeans_obj_county$cluster
+
+# create column for cluster assignment
+county_cluster_data <- cbind(county_data, clusterNum = kmeans_obj_county$cluster)
+
+# breakup the datset into their respective cluster datasets
+cluster_1_data <- filter(county_cluster_data, clusterNum == 1) #Nate
+cluster_2_data <- filter(county_cluster_data, clusterNum == 2) #Cesar
+cluster_3_data <- filter(county_cluster_data, clusterNum == 3) #Alex
+cluster_4_data <- filter(county_cluster_data, clusterNum == 4) #Liam
+
+#write.csv(cluster_1_data,"cluster_1_data.csv", row.names = FALSE)
+#write.csv(cluster_2_data,"cluster_2_data.csv", row.names = FALSE)
+#write.csv(cluster_3_data,"cluster_3_data.csv", row.names = FALSE)
+#write.csv(cluster_4_data,"cluster_4_data.csv", row.names = FALSE)
+```
+
+```{r echo=FALSE, results=FALSE}
+#means
+total_dpts <- nrow(county_cluster_data)
+means_histo <- data.frame(clusters=c(1:4),
+              dpts = c(nrow(cluster_1_data)/total_dpts,
+                             nrow(cluster_2_data)/total_dpts,
+                             nrow(cluster_3_data)/total_dpts,
+                             nrow(cluster_4_data)/total_dpts
+                        ),
+              loaccgro_means = c(mean(cluster_1_data$loaccgro),
+                                 mean(cluster_2_data$loaccgro),
+                                 mean(cluster_3_data$loaccgro),
+                                 mean(cluster_4_data$loaccgro)),
+              fasfoo_means = c(mean(cluster_1_data$fasfoo),
+                                 mean(cluster_2_data$fasfoo),
+                                 mean(cluster_3_data$fasfoo),
+                                 mean(cluster_4_data$fasfoo)),
+              fitplace_means = c(mean(cluster_1_data$fitplace),
+                                 mean(cluster_2_data$fitplace),
+                                 mean(cluster_3_data$fitplace),
+                                 mean(cluster_4_data$fitplace)),
+              medinc_means = c(mean(cluster_1_data$medinc),
+                                 mean(cluster_2_data$medinc),
+                                 mean(cluster_3_data$medinc),
+                                 mean(cluster_4_data$medinc)),
+              diab_means = c(mean(cluster_1_data$diab),
+                                 mean(cluster_2_data$diab),
+                                 mean(cluster_3_data$diab),
+                                 mean(cluster_4_data$diab)),
+              obesrate_means = c(mean(cluster_1_data$obesrate),
+                                 mean(cluster_2_data$obesrate),
+                                 mean(cluster_3_data$obesrate),
+                                 mean(cluster_4_data$obesrate))
+              
+              )
+library(plotly)
+fig <- plot_ly(means_histo, x = ~clusters,
+               y = ~loaccgro_means,
+               type = 'bar', name = 'access to grocery means')
+fig <- fig %>% add_trace(y = ~fasfoo_means, name = 'fast food means')
+fig <- fig %>% add_trace(y = ~medinc_means, name = 'median income means')
+fig <- fig %>% add_trace(y = ~fitplace_means, name = 'fitness establishments means')
+fig <- fig %>% add_trace(y = ~diab_means, name = 'diabetes means')
+fig <- fig %>% add_trace(y = ~obesrate_means, name = 'obesity rate means')
+fig <- fig %>% add_trace(y = ~dpts, name = 'datapoints in cluster/total datapoints')
+fig <- fig %>% layout(yaxis = list(title = 'Normalized'), barmode = 'group')
+
+
+fig
+```
+We clustered our parameters in 5 dimensions: one for each of the explanatory variables. Because of that, it would require several plots to show the cluster themselves with little to take away from them. We believed that showing a bar plot with the average of each parameter in each cluster would be more relevant and informative in a simpler manner. 
+
+Cluster 1:
+Clustered the wealthier countries, with lower diabetes rates highest proportions of access to fitness establishments. 
+
+Cluster 2:
+Clustered countries with high access to groceries and lowest fitness establishments, mainly.
+
+Cluster 3:
+Clustered countries with lowest rates of income, highest rates of diabetes and lowest rate of access to groceries.
+
+Cluster 4:
+Seems to have the most balance of all clusters.
+```{r echo=FALSE, results=FALSE}
+library("dplyr")
+library("usmap")
+total_counties_per_state <- county_cluster_data %>%
+  group_by(state)%>%dplyr::summarise(numCounties=n())
+county_cluster_data_and_countyCount <- merge(county_cluster_data,
+                             total_counties_per_state,by="state")
+plot_data<-county_cluster_data_and_countyCount %>%
+  group_by(state,numCounties,clusterNum) %>% dplyr::summarise(values=n()/numCounties)
+plot_usmap(data = plot_data[plot_data$clusterNum==1,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster1",limits=c(0, 1)
+  ) 
+plot_usmap(data = plot_data[plot_data$clusterNum==2,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster2",limits=c(0, 1)
+  ) 
+plot_usmap(data = plot_data[plot_data$clusterNum==3,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster3",limits=c(0, 1)
+  ) 
+plot_usmap(data = plot_data[plot_data$clusterNum==4,])+ 
+  scale_fill_continuous(
+    low = "white", high = "black", name = "cluster4",limits=c(0, 1)
+) 
+```
+
+Next, we thought that it could be good to see how these clusters are displayed geographically in the country. We calculated the percentage of counties per state that are in each cluster and plotted that information.
+Cluster 1:
+Mostly New England and California. This is the wealthier cluster, so it definitely makes sense.
+Cluster 2:
+There are extremely few data points in this cluster. It seems that most of the places where a high percentage of the population has access to groceries is the southwest and the northwest of the country.
+Cluster 3:
+Concentrates a lot of the southern states aside from Florida and Texas.
+Cluster 4:
+Seems to be the almost evenly distributed accross the country, which makes sense given the bar plot.
+
+## Evaluation of our Models
+
+#### Cluster 1 Evaluation
+```{r echo=FALSE, results=FALSE}
+cluster1 <- read.csv("cluster_1_data.csv")
+cluster1 <- cluster1 %>% select(-c("clusterNum", "state", "county"))
+
+
+# Create test, tune and training sets 
+# 85% train 15% for tune and test, try to give more data for random forest training
+set.seed(2001)
+part_index_1 <- createDataPartition(cluster1$obesrate,
+                                           times=1,
+                                           p = 0.85,
+                                           groups=1,
+                                           list=FALSE)
+train_1 <- cluster1[part_index_1,]
+test_1 <- cluster1[-part_index_1, ]
+
+
+# Calculate the initial mtry level 
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(xx)
+}
+mytry_tune(cluster1) # 2.236068 -> 2
+
+
+set.seed(2001)
+cluster1_RF = randomForest(obesrate~., train_1, ntree = 1000,
+                            mtry = 2,            
+                            replace = TRUE,      
+                            sampsize = 100,      
+                            nodesize = 5,        
+                            importance = TRUE,   
+                            proximity = FALSE,    
+                            norm.votes = TRUE,   
+                            do.trace = TRUE,     
+                            keep.forest = TRUE,  
+                            keep.inbag = TRUE)   
+
+
+View(as.data.frame(cluster1_RF$importance))
+
+# Diabetes was the most important in predicting the obesity rate which makes sense since these would appear to be highly correlated variables at first glance.
+
+# Testing and optimizing by picking the most appropriate mtry, node size and ntree.
+
+yhat.cluster1 = predict(cluster1_RF,newdata=test_1)
+mean((yhat.cluster1-test_1$obesrate)^2)
+mean((mean(test_1$obesrate)-test_1$obesrate)^2)
+mean((mean(train_1$obesrate)-test_1$obesrate)^2)
+
+
+```
+
+#### Cluster 2 Evaluation
+
+Cluster 2 has very few data points. Because of this I will use 85% of the data as training data and tuning and the rest will be used for testing.
+
+This was a very interesting cluster as it was supposed to concentrate counties with a really high degree of the population with access to groceries and counties with low access to gyms. Initially I believed these features wouldn't be correlated negatively, but it seems they are, at least in the national level.
+
+```{r echo=FALSE, results=FALSE}
+
+clusterdata <- read.csv("cluster_2_data.csv")
+clusterdata <- clusterdata %>% select(-c(clusterNum, state, county))
+summary(clusterdata)
+
+# Create test, tune and training sets 
+
+set.seed(22)
+part_index_1 <- createDataPartition(clusterdata$obesrate,
+                                           times=1,
+                                           p = 0.85,
+                                           groups=1,
+                                           list=FALSE)
+
+train_2 <- clusterdata[part_index_1,]
+test_2 <- clusterdata[-part_index_1, ]
+
+
+# Calculate the initial mtry level
+
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(xx)
+}
+
+mytry_tune(clusterdata)
+
+set.seed(22)
+cluster_RF = randomForest(obesrate~., train_2, ntree = 500,
+                            mtry = 3,            
+                            replace = TRUE,      
+                            sampsize = 100,      
+                            nodesize = 5,        
+                            importance = TRUE,   
+                            proximity = FALSE,    
+                            norm.votes = TRUE,   
+                            keep.forest = TRUE,  
+                            keep.inbag = TRUE)   
+
+importance <- as.data.frame(cluster_RF$importance)
+importance <- importance %>% mutate("%IncMSE"=round((`%IncMSE`),6))
+importance
+cluster2 = predict(cluster_RF,newdata=test_2)
+mean((cluster2-test_2$obesrate)^2)
+mean((mean(train_2$obesrate)-test_2$obesrate)^2)
+```
+
+The mean squared error of the sample was really low. This is to be expected, since we clustered data into four groups that are similar in determining aspects to obesity rate.
+
+If instead of training the data set, we just guessed the average obesity rate of the training data the MSE would be of 0.01247393. Using the data to train it using the random forest method, gives us a 0.009291936 MSE, which is about 30% lower. 
+
+Given there's such few data points, especially for the testing portion of this, I believe that this is a good result.
+
+Non-surprisingly, the rate of people with diabetes in the county was the most important predictor followed by median income in the county. Next, the measure of fast food restaurants in the county and income basically tied as relevant measures in determining the obesity rate of the population.
+
+#### Cluster 3 Evaluation
+```{r echo=FALSE, results=FALSE}
+cluster3 <- read.csv("cluster_3_data.csv")
+cluster3 <- cluster3 %>% select(-c("clusterNum", "state", "county"))
+
+
+# Create test, tune and training sets 
+set.seed(1)
+# 85% train 15% for tune and test, try to give more data for random forest training
+part_index_1 <- createDataPartition(cluster3$obesrate,
+                                           times=1,
+                                           p = 0.85,
+                                           groups=1,
+                                           list=FALSE)
+train <- cluster3[part_index_1,]
+test <- cluster3[-part_index_1, ]
+
+# Calculate the initial mtry level 
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(xx)
+}
+mytry_tune(cluster3) # 2.236068 -> 2
+
+set.seed(1)
+cluster3_RF = randomForest(obesrate~., train, ntree = 100,
+                            mtry = 2,            
+                            replace = TRUE,      
+                            sampsize = 100,      
+                            nodesize = 5,        
+                            importance = TRUE,   
+                            proximity = FALSE,    
+                            norm.votes = TRUE,   
+                            do.trace = TRUE,     
+                            keep.forest = TRUE,  
+                            keep.inbag = TRUE)   
+
+# Settled on ntrees=100 since it yielded the best MSE while keeping sample size capped at 100 as well. Didn't want to increase sample size too much even if it led to a lower MSE because I don't want the model to overfit to the data. 
+
+View(as.data.frame(cluster3_RF$importance))
+
+# Diabetes was the most important in predicting the obesity rate which makes sense since these would appear to be highly correlated variables at first glance.
+
+# Testing and optimizing by picking the most appropriate mtry, node size and ntree.
+yhat.cluster3 = predict(cluster3_RF,newdata=test)
+mean((yhat.cluster3-test$obesrate)^2) # MSE of random forest model performance on test data
+mean((mean(test$obesrate)-test$obesrate)^2) # MSE of testing data set
+mean((mean(train$obesrate)-test$obesrate)^2) # MSE of training data set
+
+# the random forest model (MSE of 0.006502064) performed better than just guessing the mean obesity rate in both the test (0.01054306) and train (0.01081579) set.
+
+
+```
+
+#### Cluster 4 Evaluation
+```{r echo=FALSE, results=FALSE}
+clusterdata <- read.csv("cluster_4_data.csv")
+clusterdata <- clusterdata %>% select(-c(clusterNum, state, county))
+#clusterdata <- one_hot(as.data.table(clusterdata),cols="obesrateLevel",sparsifyNAs = TRUE,naCols = FALSE,dropCols = TRUE,dropUnusedLevels = TRUE)
+
+
+# Create test, tune and training sets 
+part_index_1 <- createDataPartition(clusterdata$obesrate,
+                                           times=1,
+                                           p = 0.85,
+                                           groups=1,
+                                           list=FALSE)
+train <- clusterdata[part_index_1,]
+test <- clusterdata[-part_index_1, ]
+
+# Calculate the initial mtry level 
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(xx)
+}
+mytry_tune(clusterdata)
+
+set.seed(1)
+cluster_RF = randomForest(obesrate~., train, ntree = 200,
+                            mtry = 2,            
+                            replace = TRUE,      
+                            sampsize = 100,      
+                            nodesize = 5,        
+                            importance = TRUE,   
+                            proximity = FALSE,    
+                            norm.votes = TRUE,   
+                            do.trace = TRUE,     
+                            keep.forest = TRUE,  
+                            keep.inbag = TRUE)   
+
+View(as.data.frame(cluster_RF$importance))
+cluster4 = predict(cluster_RF,newdata=test)
+mean((cluster4-test$obesrate)^2)
+mean((mean(test$obesrate)-test$obesrate)^2)
+mean((mean(train$obesrate)-test$obesrate)^2)
+
+```
+
+## Fairness Assessment
+
+## Conclusions
+
+## Future Work
