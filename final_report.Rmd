@@ -39,7 +39,7 @@ library(NbClust)
 
 During the COVID pandemic, the Centers for Disease and Control and Prevention (CDC) published an article showing that the obese population was more likely to die or have further complications due to the virus.  There are countless other similar studies that indicate the severity of the health problem that is obesity.
 
-The United States is the most relevant country in the world, being known for being a land of great opportunity, wealth and freedom. However, along with that, there is an immediate association of the country with a sedentary life style, fast food restaurants and obesity. The stereotype doesn't come from nowhere: The United States has an obesity rate of 36.5%, making the country the most obese among developed countries. Within the limits of the conclusions that the field of data science can make, we decided to answer: Is the availability to fast food restaurants in the USA associated with higher obesity rates? We will also attempt to discover other variables that could be associated with obesity rates and determine how correlated they seem to be with obesity rates. Or rather, which factors are the best predictors of obesity rate?
+The United States is the most relevant country in the world, being known for being a land of great opportunity, wealth and freedom. However, along with that, there is an immediate association of the country with a sedentary life style, fast food restaurants and obesity. The stereotype doesn't come from nowhere: The United States has an obesity rate of 36.5%, making the country the most obese among developed countries. Within the limits of the conclusions that the field of data science can make, we decided to answer: Is the availability to fast food restaurants in the USA associated with higher obesity rates? We will also attempt to discover other variables that could be associated with obesity rates and determine how correlated they seem to be with it. Or rather, which factors are the best predictors of obesity rate?
 
 ## Data
 We used data from the Food Environment Atlas by the U.S Department of Agriculture collected in years ranging from 2013 to 2015. They use as their sources the BRFSS, the U.S. Census, and the USDA's Economic Research Service as their sources and they organize their data at the county level - therefore we have used each county as one data point. We believe that the fact the data is from different years may cause a slight alteration in the results of our model. This should be negligible since they're only at most two years apart.
@@ -110,13 +110,9 @@ To answer our question, we chose to use a two step process. For the first step, 
 
 We clustered on the variables mentioned above (fasfoo, medinc, diab, fitplace, loaccgro), excluding obesity rate as this is our target variable.
 
-Based on the elbow the elbow chart below, 4 centers looked the best for k-means. For each of the 4 clusters, we created 4 new data sets, leading us to the second step of our two-step process. For each data set, we trained a random forest regression model, evaluating them using mean-squared error (MSE).
+Based on the elbow chart below, 4 centers looked the best for k-means. For each of the 4 clusters, we created 4 new data sets, leading us to the second step of our two-step process. For each data set, we trained a random forest regression model, evaluating them using mean-squared error (MSE).
 
 We decided to use decision trees because they allow us to determine which features are most useful in predicting our target variable, helping us answer our question above of which features are the best predictors of obesity rate. Furthermore, we used random forests to mitigate under-predicting and over-predicting through their use of bagging and boosting. 
-
-
-## Exploratory Data Analysis
-
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 table(is.na(mergingData)) 
 # very few NAs. Let's omit them
@@ -128,11 +124,8 @@ normalize <- function(x){
  (x - min(x)) / (max(x) - min(x))
 }
 county_data[,c(3:8)] <- lapply(county_data[,c(3:8)], normalize)
-summary(county_data)
 
 ```
-Since we use a two step data analysis process, first clustering the data and then running separate models in each cluster, we thought this would be a good opportunity to explore these clusters a little more.
-
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 # remove obesrateLevel for clustering
 clust_county <- county_data %>% select(-c("obesrate"))
@@ -164,7 +157,6 @@ ggplot(elbow_data_county,
   theme_light()
 
 ```
-
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 # 4 centers was found to be the best
 set.seed(1)
@@ -189,6 +181,13 @@ cluster_4_data <- filter(county_cluster_data, clusterNum == 4) #Liam
 #write.csv(cluster_3_data,"cluster_3_data.csv", row.names = FALSE)
 #write.csv(cluster_4_data,"cluster_4_data.csv", row.names = FALSE)
 ```
+
+## Exploratory Data Analysis
+
+```{r}
+summary(county_data)
+```
+Since we use a two step data analysis process, first clustering the data and then running separate models in each cluster, we thought this would be a good opportunity to explore these clusters a little more.
 
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 #means
@@ -236,8 +235,8 @@ fig <- fig %>% add_trace(y = ~diab_means, name = 'diabetes means')
 fig <- fig %>% add_trace(y = ~obesrate_means, name = 'obesity rate means')
 fig <- fig %>% add_trace(y = ~dpts, name = 'datapoints in cluster/total datapoints')
 fig <- fig %>% layout(yaxis = list(title = 'Normalized'), barmode = 'group')
-
-
+```
+```{r echo=FALSE}
 fig
 ```
 We clustered our parameters in 5 dimensions: one for each of the explanatory variables. Because of that, it would require several plots to show the cluster themselves with little to take away from them. We believed that showing a bar plot with the average of each parameter in each cluster would be more relevant and informative in a simpler manner. 
@@ -439,7 +438,7 @@ If instead of training the data set, we just guessed the average obesity rate of
 
 Given there's such few data points, especially for the testing portion of this, I believe that this is a good result.
 
-Non-surprisingly, the rate of people with diabetes in the county was the most important predictor followed by median income in the county. Next, the measure of fast food restaurants in the county and income basically tied as relevant measures in determining the obesity rate of the population.
+Non-surprisingly, the rate of people with diabetes in the county was the most important predictor. Next, the measure of fast food restaurants in the county and median income basically tied as second most relevant measures, and access to grocery stores came in fourth. Access to gyms had basically no relevance at all.
 
 #### Cluster 3 Evaluation
 ```{r echo=FALSE, results=FALSE}
@@ -567,16 +566,16 @@ mean((mean(train$obesrate)-test$obesrate)^2)
 
 ## Conclusions
 
-Based on each of our random forest models, rate of diabetes in a county was clearly the best predictor of obesity rate as expected. After diabetes, the number of fast-food restaurants per 1000 people in each county was the next best predictor, ranking 2nd in variable importance for each cluster except the second. For the second cluster, median household income ranked 2nd while the number of fast food locations followed in 3rd.
+Based on each of our random forest models, rate of diabetes in a county was clearly the best predictor of obesity rate as expected. After diabetes, the number of fast-food restaurants per 1000 people in each county was the next best predictor, ranking 2nd in variable importance for each cluster except the second, for which it basically tied with median household income basically 2nd place.
 
 Meanwhile, for every cluster except cluster 1, the number of recreation/fitness centers per 1000 people was the least useful in predicting obesity rate, while the percent of access to grocery stores ranked last in cluster 1.
 
-In conclusion, looking at factors that may contribute to someone becoming obese (i.e. fast-food restaurants) are likely to be a better indicator than factors that would help prevent someone from becoming obese (i.e. fitness center).
+In conclusion, given the correlation shown by our model, it looks like factors that may contribute to someone becoming obese (i.e. fast-food restaurants) are likely to be a better indicator than factors that would help prevent someone from becoming obese (i.e. fitness center).
 
 
 
 ## Future Work
 
-Having more additional factors would have been beneficial to look into considering we only had 5 features. Our features were also more on the obvious side of predicting obesity, considering the outcomes weren't all too surprising. Including variables such as population demographics (i.e. age, ethnicity, etc.), population density, screen time (i.e. iPhone screen time), number of registered vehicles per household, and public transportation budget could be interesting to look into.
+Having additional factors would have been beneficial to look into, considering we only had 5 features. Our features were also more on the obvious side of predicting obesity, considering the outcomes weren't all too surprising. Including variables such as population demographics (i.e. age, ethnicity, etc.), population density, screen time (i.e. iPhone screen time), number of registered vehicles per household, and public transportation budget could be interesting to look into.
 
 Furthermore, we could split our initial data set up into different ways. For instance, we could include more or less clusters. Or we could intentionally cluster certain counties together to make up specific subgroups such as organizing by state, region, time zone, etc.
