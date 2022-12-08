@@ -35,7 +35,7 @@ library(rattle)
 
 ```{r}
 cluster3 <- read.csv("cluster_3_data.csv")
-cluster3 <- cluster3 %>% select(-c("clusterNum", "state", "county", "obesrateLevel"))
+cluster3 <- cluster3 %>% select(-c("clusterNum", "state", "county"))
 ```
 
 
@@ -91,6 +91,6 @@ mean((yhat.cluster3-test$obesrate)^2) # MSE of random forest model performance o
 mean((mean(test$obesrate)-test$obesrate)^2) # MSE of testing data set
 mean((mean(train$obesrate)-test$obesrate)^2) # MSE of training data set
 
-# the random forest model (MSE of 0.006502064) performed better than just guessing the mean obesity rate in both the test (0.01054306) and train (0.01081579) set.
+# the random forest model performed better than just guessing the mean obesity rate in both the test and train set.
 ```
 

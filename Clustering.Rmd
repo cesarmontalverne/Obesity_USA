@@ -113,7 +113,7 @@ summary(county_data)
 Since we use a two step data analysis process, first clustering the data and then running separate models in each cluster, I thought this would be a good opportunity to explore these clusters a little more.
 
 ```{r}
-# remove obesrateLevel for clustering
+# remove obesrate for clustering
 clust_county <- county_data %>% select(-c("obesrate"))
 
 # use elbow chart to find best number of centers for kmeans
