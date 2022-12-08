@@ -41,6 +41,7 @@ cluster3 <- cluster3 %>% select(-c("clusterNum", "state", "county", "obesrateLev
 
 Create test, tune and training sets 
 ```{r}
+set.seed(1)
 # 85% train 15% for tune and test, try to give more data for random forest training
 part_index_1 <- createDataPartition(cluster3$obesrate,
                                            times=1,
@@ -62,7 +63,7 @@ mytry_tune(cluster3) # 2.236068 -> 2
 
 ```{r}
 set.seed(1)
-cluster3_RF = randomForest(obesrate~., train, ntree = 500,
+cluster3_RF = randomForest(obesrate~., train, ntree = 100,
                             mtry = 2,            
                             replace = TRUE,      
                             sampsize = 100,      
@@ -73,6 +74,8 @@ cluster3_RF = randomForest(obesrate~., train, ntree = 500,
                             do.trace = TRUE,     
                             keep.forest = TRUE,  
                             keep.inbag = TRUE)   
+
+# Settled on ntrees=100 since it yielded the best MSE while keeping sample size capped at 100 as well. Didn't want to increase sample size too much even if it led to a lower MSE because I don't want the model to overfit to the data. 
 ```
 
 ```{r}
@@ -84,7 +87,10 @@ View(as.data.frame(cluster3_RF$importance))
 Testing and optimizing by picking the most appropriate mtry, node size and ntree.
 ```{r}
 yhat.cluster3 = predict(cluster3_RF,newdata=test)
-mean((yhat.cluster3-test$obesrate)^2)
-mean((mean(test$obesrate)-test$obesrate)^2)
-mean((mean(train$obesrate)-test$obesrate)^2)
+mean((yhat.cluster3-test$obesrate)^2) # MSE of random forest model performance on test data
+mean((mean(test$obesrate)-test$obesrate)^2) # MSE of testing data set
+mean((mean(train$obesrate)-test$obesrate)^2) # MSE of training data set
+
+# the random forest model (MSE of 0.006502064) performed better than just guessing the mean obesity rate in both the test (0.01054306) and train (0.01081579) set.
 ```
+
