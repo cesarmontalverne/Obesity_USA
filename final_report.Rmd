@@ -46,11 +46,11 @@ We used data from the Food Environment Atlas by the U.S Department of Agricultur
 
 We picked a few variables that we thought could be relevant in determining obesity rates:
 
-obesrate = rate of obesity in each county in the US, 2013 
-fasfoo = fast-food restaurants per 1000 people in each county in the US, 2014 
-medinc = median household income, 2015
-diab = rate of diabetes in each county in the US, 2013
-fitplace = recreation & fitness facilities per 1000 people in each county in the US, 2014 
+obesrate = rate of obesity in each county in the US, 2013\
+fasfoo = fast-food restaurants per 1000 people in each county in the US, 2014\
+medinc = median household income, 2015\
+diab = rate of diabetes in each county in the US, 2013\
+fitplace = recreation & fitness facilities per 1000 people in each county in the US, 2014\
 loaccgro = percent of access to grocery stores in each county in the US, 2015.
 
 
@@ -236,11 +236,22 @@ fig <- fig %>% add_trace(y = ~obesrate_means, name = 'obesity rate means')
 fig <- fig %>% add_trace(y = ~dpts, name = 'datapoints in cluster/total datapoints')
 fig <- fig %>% layout(yaxis = list(title = 'Normalized'), barmode = 'group')
 ```
+
+We clustered our parameters in 5 dimensions: one for each of the explanatory variables. Because of that, it would require several plots to show the cluster themselves with little to take away from them. We believed that showing a bar plot with the average of each parameter in each cluster would be more relevant and informative in a simpler manner. 
+
 ```{r echo=FALSE}
 fig
 ```
-We clustered our parameters in 5 dimensions: one for each of the explanatory variables. Because of that, it would require several plots to show the cluster themselves with little to take away from them. We believed that showing a bar plot with the average of each parameter in each cluster would be more relevant and informative in a simpler manner. 
+Cluster 1:\
+Clustered the wealthier counties, with lower diabetes rates highest proportions of access to fitness establishments. \
+Cluster 2:\
+Clustered counties with high access to groceries and lowest fitness establishments, mainly.\
+Cluster 3:\
+Clustered counties with lowest rates of income, highest rates of diabetes and lowest rate of access to groceries.\
+Cluster 4:\
+Seems to have the most balance of all clusters.
 
+Next, we thought that it could be good to see how these clusters are displayed geographically in the country. We calculated the percentage of counties per state that are in each cluster and plotted that information.
 
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 library("dplyr")
@@ -260,8 +271,7 @@ plot_usmap(data = plot_data[plot_data$clusterNum==1,])+
   ) 
 ```
 Cluster 1:
-Clustered the wealthier counties, with lower diabetes rates highest proportions of access to fitness establishments. 
-
+Mostly New England and California. This is the wealthier cluster, so it definitely makes sense.
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 plot_usmap(data = plot_data[plot_data$clusterNum==2,])+ 
   scale_fill_continuous(
@@ -269,7 +279,7 @@ plot_usmap(data = plot_data[plot_data$clusterNum==2,])+
   ) 
 ```
 Cluster 2:
-Clustered counties with high access to groceries and lowest fitness establishments, mainly.
+There are extremely few data points in this cluster. It seems that most of the places where a high percentage of the population has access to groceries is the southwest and the northwest of the country.
 
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 plot_usmap(data = plot_data[plot_data$clusterNum==3,])+ 
@@ -278,24 +288,13 @@ plot_usmap(data = plot_data[plot_data$clusterNum==3,])+
   ) 
 ```
 Cluster 3:
-Clustered counties with lowest rates of income, highest rates of diabetes and lowest rate of access to groceries.
-
+Concentrates a lot of the southern states aside from Florida and Texas.
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 plot_usmap(data = plot_data[plot_data$clusterNum==4,])+ 
   scale_fill_continuous(
     low = "white", high = "black", name = "cluster4",limits=c(0, 1)
 ) 
 ```
-Cluster 4:
-Seems to have the most balance of all clusters.
-
-Next, we thought that it could be good to see how these clusters are displayed geographically in the country. We calculated the percentage of counties per state that are in each cluster and plotted that information.
-Cluster 1:
-Mostly New England and California. This is the wealthier cluster, so it definitely makes sense.
-Cluster 2:
-There are extremely few data points in this cluster. It seems that most of the places where a high percentage of the population has access to groceries is the southwest and the northwest of the country.
-Cluster 3:
-Concentrates a lot of the southern states aside from Florida and Texas.
 Cluster 4:
 Seems to be the almost evenly distributed accross the country, which makes sense given the bar plot.
 
