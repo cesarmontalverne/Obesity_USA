@@ -110,9 +110,7 @@ To answer our question, we chose to use a two step process. For the first step, 
 
 We clustered on the variables mentioned above (fasfoo, medinc, diab, fitplace, loaccgro), excluding obesity rate as this is our target variable.
 
-Based on the elbow chart below, 4 centers looked the best for k-means. For each of the 4 clusters, we created 4 new data sets, leading us to the second step of our two-step process. For each data set, we trained a random forest regression model, evaluating them using mean-squared error (MSE).
-
-We decided to use kmeans clustering because they allow us to determine which features are most useful in predicting our target variable, helping us answer our question above of which features are the best predictors of obesity rate. Furthermore, we used random forests to mitigate under-predicting and over-predicting through their use of bagging and boosting. 
+Based on the elbow chart below, 4 centers looked the best for k-means. For each of the 4 clusters, we created 4 new data sets, leading us to the second step of our two-step process. For each data set, we trained a random forest (RF) regression model, evaluating them using mean-squared error (MSE). RF also grants us the ability to see variable importance, helping us answer our question of which features are the best predictors of obesity rate. RF's benefits of bagging and boosting to mitigate under-fitting and over-fitting also made it an appealing option.
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 table(is.na(mergingData)) 
 # very few NAs. Let's omit them
