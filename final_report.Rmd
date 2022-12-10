@@ -271,7 +271,9 @@ plot_usmap(data = plot_data[plot_data$clusterNum==1,])+
   ) 
 ```
 Cluster 1:
+
 Mostly New England and California. This is the wealthier cluster, so it definitely makes sense.
+
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 plot_usmap(data = plot_data[plot_data$clusterNum==2,])+ 
   scale_fill_continuous(
@@ -279,6 +281,7 @@ plot_usmap(data = plot_data[plot_data$clusterNum==2,])+
   ) 
 ```
 Cluster 2:
+
 There are extremely few data points in this cluster. It seems that most of the places where a high percentage of the population has access to groceries is the southwest and the northwest of the country.
 
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
@@ -288,7 +291,9 @@ plot_usmap(data = plot_data[plot_data$clusterNum==3,])+
   ) 
 ```
 Cluster 3:
+
 Concentrates a lot of the southern states aside from Florida and Texas.
+
 ```{r echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
 plot_usmap(data = plot_data[plot_data$clusterNum==4,])+ 
   scale_fill_continuous(
@@ -296,6 +301,7 @@ plot_usmap(data = plot_data[plot_data$clusterNum==4,])+
 ) 
 ```
 Cluster 4:
+
 Seems to be the almost evenly distributed across the country, which makes sense given the bar plot.
 
 ## Evaluation of our Models
